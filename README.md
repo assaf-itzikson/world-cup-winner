@@ -14,39 +14,38 @@ Use Node.js 22 or newer for deployment and Yarn Classic 1.22.x (the project pins
 
 Share the public URL with viewers. They can watch without signing in and enter their name to check in; only the admin sees the check-in list. Checking in does not enter a person into the draw. Edit `participants.json` before starting the server to change the eligible names.
 
-## Run in the background with a public HTTPS URL
+## Deploy the frontend on GitHub Pages
+
+The public frontend is hosted at https://assaf-itzikson.github.io/world-cup-winner/. GitHub Pages serves static files and cannot run the Node backend. Admin authentication, the shared draw, and viewer presence still require a public HTTPS backend.
+
+1. Deploy the backend using the Render instructions below, or another Node hosting service.
+2. Set `ALLOWED_ORIGINS=https://assaf-itzikson.github.io` on the backend. `render.yaml` already includes this setting.
+3. In this GitHub repository, open **Settings → Secrets and variables → Actions → Variables**. Add `PAGES_API_URL` containing the backend's public HTTPS URL, without a trailing slash. This URL is public configuration, not a secret.
+4. In **Settings → Pages**, select **GitHub Actions** as the deployment source.
+5. Push to `main`, or run **Deploy GitHub Pages** from the Actions tab. After changing `PAGES_API_URL`, rerun that workflow.
+
+The workflow uses `yarn build:pages` to publish only the frontend and participant names from `dist/`. `.env`, the server, and saved draw data are excluded. Asset paths work under `/world-cup-winner/`. Never put `ADMIN_PASSWORD` in `PAGES_API_URL`, frontend configuration, or any Pages artifact.
+
+Without `PAGES_API_URL`, the public page displays the wheel and eligible names, with the live draw disconnected and its controls disabled. It cannot spin, check in viewers, or show shared live results until the backend is connected.
+
+For a local Pages build, run `PAGES_API_URL=https://your-backend.example yarn build:pages`. Only use an HTTPS backend URL that you actually control and have deployed.
+
+## Run Docker in the background
 
 Docker Desktop must be running. Set `ADMIN_PASSWORD` in `.env`, then run:
 
 ```sh
 docker compose up -d --build
-docker compose logs tunnel
-```
-
-Share the public HTTPS URL printed in the tunnel logs. The app and a localhost.run SSH tunnel run in the background and restart automatically while Docker is running. The app is accessible through the tunnel; no host port is published. `.env` stays out of the Docker image, and the password is supplied at runtime. Draw results are stored in the `draw-data` Docker volume and survive container rebuilds. The tunnel uses no personal SSH keys or account credentials; its server host key is retained in a separate Docker volume.
-
-To find the latest address without the tunnel's QR-code output:
-
-```sh
-docker compose logs --no-color tunnel | rg 'tunneled with tls termination' | tail -1
-```
-
-Live updates use one-second polling in Docker to work reliably across public tunnel proxies. Each browser tab keeps its viewer ID across refreshes, so refreshing does not add another online viewer. Names are initially added only when the check-in form is submitted. A successful submission locks the name field and submit button, and saves the name in that tab's session storage. Refreshing restores the locked name and its check-in without creating duplicate viewers. Closing the tab or window ends that session; a new tab starts with an empty, editable field. Closing a page sends a departure notification; if it cannot be delivered, the viewer expires about a minute after the last update. Other deployments continue to use Server-Sent Events. Docker sets `COOKIE_SECURE=true` so admin cookies are always restricted to HTTPS, even when the tunnel's forwarding headers differ between providers.
-
-Useful commands:
-
-```sh
 docker compose ps
-docker compose logs --tail=50 app tunnel
-docker compose up -d --build
+docker compose logs --tail=50 app
 docker compose down
 ```
 
-`docker compose down` stops public access without deleting draw results. Avoid `docker compose down -v` unless you intend to delete the saved results. Changes to `.env` or participant names require running `docker compose up -d --build` again.
+The app runs at http://localhost:3000 and restarts automatically while Docker is running. No tunnel service is included. This local HTTP address cannot be used as the backend for the public HTTPS Pages site. `.env` stays out of the Docker image and draw results remain in the `draw-data` volume. Avoid `docker compose down -v` unless you intend to delete saved results. Changes to `.env` or participant names require running `docker compose up -d --build` again.
 
-The free public URL rotates regularly, even while the tunnel is connected. Get the latest address from the logs and share it again if the previous address stops working. This makes the free tunnel suitable for testing, but a stable address is preferable for the actual live draw. Your computer must remain awake, connected to the internet, with Docker running. For a permanent address, deploy on Render below, or configure a tunnel with a domain you own. This setup requires outbound SSH access to `localhost.run:22`. Cloudflare Quick Tunnels were unavailable on the current network because their required outbound port 7844 is blocked.
+## Viewer sessions
 
-Tunnel documentation: https://localhost.run/docs/http-tunnels/
+Each browser tab keeps its viewer ID across refreshes, preventing duplicate online counts. Names are initially added only when the check-in form is submitted. A successful submission locks the name field and submit button and saves the name in the tab's session storage. Refresh restores that name and check-in without duplicate viewers. Closing the tab or window ends the session. If its departure notification cannot be delivered, the viewer expires about a minute after the last update. Pages and Docker use one-second polling; same-origin deployments may use Server-Sent Events.
 
 ## How the draw works
 
@@ -54,7 +53,7 @@ The server normalizes names and removes duplicates, then uses Node's cryptograph
 
 Results are saved before the animation starts and survive restarts when `DATA_DIR` is persistent. Winners are withheld from public responses until the draw ends. A second spin is rejected until an admin explicitly resets the completed draw. This is a fair random selection, but not an independently verifiable public lottery protocol.
 
-Admin authorization is checked on the server, with an expiring HttpOnly cookie, same-origin checks and login attempt limits. HTTPS is required for public deployment. Login attempts are limited per connection IP; a hosting proxy can cause this limit to be shared by viewers. Admin sessions and check-ins are held in memory and expire on restart; check-ins disappear when SSE viewers disconnect or polling viewers time out. Run a single server instance with a persistent disk.
+Admin authorization is checked on the server, with expiring sessions, allowed-origin checks and login attempt limits. Pages keeps an admin session token in tab session storage and sends it in the Authorization header, so cross-origin authentication does not depend on third-party cookies. Same-origin hosting also supports an HttpOnly cookie. HTTPS is required for public deployment. Login attempts are limited per connection IP; a hosting proxy can cause this limit to be shared by viewers. Admin sessions and check-ins are held in memory and expire on restart. Run a single server instance with a persistent disk.
 
 ## Deploy publicly on Render
 
@@ -63,9 +62,9 @@ Use a **Node web service**, so viewers receive shared live updates and the serve
 1. Push this folder to a GitHub repository. Keep `.env` out of Git.
 2. In Render, create a **Blueprint** from the repository. `render.yaml` configures a paid Starter service and a 1 GB persistent disk.
 3. Set `ADMIN_PASSWORD` when prompted. Use a long, unique password and share it only with the admin.
-4. Deploy, then share the supplied `https://…onrender.com` URL with everyone.
+4. Deploy and use the supplied `https://…onrender.com` URL as the GitHub `PAGES_API_URL` variable. The same backend URL also serves the complete app directly.
 
-Alternatively create a Node web service manually: build command `yarn install --frozen-lockfile --production`, start command `yarn start`, health check `/health`; set `ADMIN_PASSWORD`, mount a persistent disk at `/var/data`, and set `DATA_DIR=/var/data`.
+Alternatively create a Node web service manually: build command `yarn install --frozen-lockfile --production`, start command `yarn start`, health check `/health`; set `ADMIN_PASSWORD` and `ALLOWED_ORIGINS=https://assaf-itzikson.github.io`, mount a persistent disk at `/var/data`, and set `DATA_DIR=/var/data`.
 
 The paid service and disk incur hosting charges; review Render's current pricing before deploying. A free service can demonstrate the page, but free services sleep and do not offer persistent disks, so results will not reliably survive restarts or deploys. Static-only hosting cannot enforce these admin controls or synchronize the room.
 

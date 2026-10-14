@@ -5,6 +5,8 @@
 .agents
 node_modules
 data
+dist
+.github
 README.md
 Dockerfile*
 compose*.yaml

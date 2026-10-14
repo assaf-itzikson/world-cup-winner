@@ -5,6 +5,7 @@ COPY package.json yarn.lock ./
 RUN corepack enable && corepack prepare yarn@1.22.11 --activate && yarn install --frozen-lockfile --production && mkdir -p /app/data && chown node:node /app/data
 COPY --chown=node:node server.js participants.json ./
 COPY --chown=node:node public ./public
+COPY --chown=node:node scripts ./scripts
 
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/app/data
 USER node

@@ -30,6 +30,7 @@ fs.mkdirSync(dataDirectory, { recursive: true });
 const statePath = path.join(dataDirectory, 'draw.json');
 let draw = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, 'utf8')) : null;
 const sessions = new Map();
+const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean));
 const clients = new Set();
 const viewers = new Map();
 const attempts = new Map();
@@ -77,7 +78,7 @@ async function body(request) {
   return JSON.parse(content || '{}');
 }
 function sessionFor(request) {
-  const token = /(?:^|;\s*)admin=([a-f0-9]+)/.exec(request.headers.cookie || '')?.[1];
+  const token = /^Bearer ([a-f0-9]{64})$/i.exec(request.headers.authorization || '')?.[1] || /(?:^|;\s*)admin=([a-f0-9]+)/.exec(request.headers.cookie || '')?.[1];
   const session = sessions.get(token);
   if (session && session.expires > Date.now()) return token;
   return null;
@@ -89,6 +90,18 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   const requestUrl = new URL(request.url, 'http://localhost');
   const pathname = requestUrl.pathname;
+  const origin = request.headers.origin;
+  if (allowedOrigins.has(origin)) {
+    response.setHeader('Access-Control-Allow-Origin', origin);
+    response.setHeader('Vary', 'Origin');
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  if (request.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    if (!allowedOrigins.has(origin)) return json(response, 403, { error: 'Invalid request origin.' });
+    response.writeHead(204);
+    return response.end();
+  }
   const token = sessionFor(request);
   try {
     if (request.method === 'GET' && pathname === '/health') return json(response, 200, { ok: true });
@@ -119,8 +132,7 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (request.method === 'POST' && pathname.startsWith('/api/')) {
-      const origin = request.headers.origin;
-      if (!origin || new URL(origin).host !== request.headers.host || request.headers['sec-fetch-site'] === 'cross-site') return json(response, 403, { error: 'Invalid request origin.' });
+      if (!origin || (!allowedOrigins.has(origin) && (new URL(origin).host !== request.headers.host || request.headers['sec-fetch-site'] === 'cross-site'))) return json(response, 403, { error: 'Invalid request origin.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return json(response, 415, { error: 'JSON required.' });
       const input = await body(request);
       if (pathname === '/api/login') {
@@ -136,7 +148,7 @@ const server = http.createServer(async (request, response) => {
         sessions.set(newToken, { expires: Date.now() + 8 * 3600000 });
         const secure = process.env.COOKIE_SECURE === 'true' || request.socket.encrypted || request.headers['x-forwarded-proto'] === 'https';
         response.setHeader('Set-Cookie', `admin=${newToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure ? '; Secure' : ''}`);
-        return json(response, 200, { admin: true });
+        return json(response, 200, { admin: true, token: newToken });
       }
       if (pathname === '/api/poll') {
         prunePollingClients();
@@ -203,7 +215,7 @@ const server = http.createServer(async (request, response) => {
       }
       return json(response, 404, { error: 'Not found.' });
     }
-    const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
+    const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/config.js': ['config.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
     if (request.method === 'GET' && files[pathname]) {
       const [filename, type] = files[pathname];
       response.writeHead(200, { 'Content-Type': `${type}; charset=utf-8`, 'Cache-Control': 'no-cache' });

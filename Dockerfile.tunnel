@@ -1,5 +1,0 @@
-FROM alpine:3.22
-
-RUN apk add --no-cache openssh-client && adduser -D -u 10001 tunnel && mkdir -p /home/tunnel/.ssh && chown tunnel:tunnel /home/tunnel/.ssh && chmod 700 /home/tunnel/.ssh
-USER tunnel
-ENTRYPOINT ["ssh"]

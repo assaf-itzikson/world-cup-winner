@@ -13,6 +13,10 @@ services:
         sync: false
       - key: DATA_DIR
         value: /var/data
+      - key: ALLOWED_ORIGINS
+        value: https://assaf-itzikson.github.io
+      - key: LIVE_TRANSPORT
+        value: poll
     disk:
       name: draw-results
       mountPath: /var/data

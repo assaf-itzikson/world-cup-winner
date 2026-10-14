@@ -1,4 +1,10 @@
+import { apiBaseUrl, staticSite } from './config.js';
+
 const element = id => document.getElementById(id);
+const crossOrigin = Boolean(apiBaseUrl) && new URL(apiBaseUrl).origin !== window.location.origin;
+const apiPath = pathname => `${apiBaseUrl}${pathname}`;
+let adminToken = sessionStorage.getItem('drawAdminToken') || '';
+const authHeaders = () => adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
 const canvas = element('wheel');
 const context = canvas.getContext('2d');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -56,7 +62,7 @@ function toast(message) {
   toastTimer = setTimeout(() => { element('toast').hidden = true; }, 5000);
 }
 async function post(route, data = {}, signal) {
-  const response = await fetch(`/api/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), signal });
+  const response = await fetch(apiPath(`/api/${route}`), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(data), signal });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Something went wrong. Please try again.');
   return result;
@@ -189,7 +195,7 @@ function connect() {
     pollRoom(connectionGeneration);
     return;
   }
-  stream = new EventSource(`/api/events?id=${encodeURIComponent(viewerId)}&pageId=${encodeURIComponent(pageId)}`);
+  stream = new EventSource(apiPath(`/api/events?id=${encodeURIComponent(viewerId)}&pageId=${encodeURIComponent(pageId)}`));
   stream.addEventListener('connected', async event => {
     const connection = JSON.parse(event.data);
     viewerId = connection.id;
@@ -230,7 +236,15 @@ function animate() {
 }
 element('admin-open').addEventListener('click', async () => {
   if (admin) {
-    try { await post('logout'); admin = false; element('viewer-list').replaceChildren(); connect(); updateControls(); }
+    try {
+      await post('logout');
+      admin = false;
+      adminToken = '';
+      sessionStorage.removeItem('drawAdminToken');
+      element('viewer-list').replaceChildren();
+      connect();
+      updateControls();
+    }
     catch (error) { toast(error.message); }
   } else element('admin-dialog').showModal();
 });
@@ -240,7 +254,9 @@ element('login-form').addEventListener('submit', async event => {
   const button = event.currentTarget.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    await post('login', { password: element('admin-password').value });
+    const result = await post('login', { password: element('admin-password').value });
+    adminToken = result.token;
+    sessionStorage.setItem('drawAdminToken', adminToken);
     admin = true;
     element('admin-password').value = '';
     element('login-error').textContent = '';
@@ -271,12 +287,32 @@ element('reset').addEventListener('click', async () => {
   finally { pending = false; updateControls(); }
 });
 async function start() {
+  if (staticSite) {
+    try {
+      const response = await fetch('./participants.json');
+      if (!response.ok) throw new Error('Unable to load participant list.');
+      state.participants = [...new Set(await response.json())];
+      render();
+    } catch (error) { toast(error.message); }
+    if (!apiBaseUrl) {
+      element('connection-label').textContent = 'Draw not connected';
+      element('draw-badge').textContent = 'AWAITING HOST';
+      element('spin-label').textContent = 'Waiting for live connection';
+      element('viewer-count').textContent = '—';
+      element('watch-message').textContent = 'The live draw is not connected yet. Please check back soon.';
+      element('viewer-name').disabled = true;
+      element('watch-form').querySelector('button[type="submit"]').disabled = true;
+      element('admin-open').disabled = true;
+      animate();
+      return;
+    }
+  }
   try {
-    const response = await fetch('/api/session');
+    const response = await fetch(apiPath('/api/session'), { headers: authHeaders() });
     if (!response.ok) throw new Error('Unable to connect to the room.');
     const session = await response.json();
     admin = session.admin;
-    transport = session.transport;
+    transport = crossOrigin ? 'poll' : session.transport;
   } catch (error) { toast(error.message); }
   connect();
   animate();
@@ -286,7 +322,11 @@ window.addEventListener('pagehide', () => {
   clearTimeout(pollTimer);
   pollController?.abort();
   stream?.close();
-  navigator.sendBeacon('/api/leave', new Blob([JSON.stringify({ id: viewerId, pageId })], { type: 'application/json' }));
+  if (staticSite && !apiBaseUrl) return;
+  const departure = JSON.stringify({ id: viewerId, pageId });
+  if (crossOrigin) {
+    fetch(apiPath('/api/leave'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: departure, keepalive: true, credentials: 'omit' }).catch(() => {});
+  } else navigator.sendBeacon(apiPath('/api/leave'), new Blob([departure], { type: 'application/json' }));
 });
 window.addEventListener('pageshow', event => {
   if (event.persisted) connect();
