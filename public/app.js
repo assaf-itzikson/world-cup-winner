@@ -226,7 +226,7 @@ function connect() {
 function animate() {
   if (state.draw && !state.draw.complete) {
     const elapsed = Math.max(0, Date.now() + offset - state.draw.startedAt) / 1000;
-    rotation = reducedMotion ? 0 : elapsed * 3.8;
+    rotation = elapsed * (reducedMotion ? 0.65 : 3.8);
   } else if (state.draw?.complete) {
     const winnerIndex = state.participants.indexOf(state.draw.winners[0]);
     const target = -(winnerIndex + 0.5) * Math.PI * 2 / state.participants.length;
