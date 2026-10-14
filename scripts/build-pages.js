@@ -3,6 +3,9 @@ import fs from 'node:fs/promises';
 const backend = (process.env.PAGES_API_URL || '').trim().replace(/\/+$/, '');
 if (backend) {
   const url = new URL(backend);
+  if (url.hostname === 'github.io' || url.hostname.endsWith('.github.io')) {
+    throw new Error('PAGES_API_URL points to GitHub Pages, which cannot run the API. Use the HTTPS URL of your deployed Node backend instead.');
+  }
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
     throw new Error('PAGES_API_URL must be a public HTTPS backend URL without credentials, query, or fragment.');
   }

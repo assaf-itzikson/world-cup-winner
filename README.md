@@ -24,6 +24,8 @@ The public frontend is hosted at https://assaf-itzikson.github.io/world-cup-winn
 4. In **Settings → Pages**, select **GitHub Actions** as the deployment source.
 5. Push to `main`, or run **Deploy GitHub Pages** from the Actions tab. After changing `PAGES_API_URL`, rerun that workflow.
 
+`PAGES_API_URL` must point to the running Node server, not `https://assaf-itzikson.github.io` or the Pages site URL. The backend's `/health` endpoint should return `{"ok":true}`. A Pages URL has no API and returns 404 for `/api/session`. The build rejects GitHub Pages hostnames as backend URLs.
+
 The workflow uses `yarn build:pages` to publish only the frontend and participant names from `dist/`. `.env`, the server, and saved draw data are excluded. Asset paths work under `/world-cup-winner/`. Never put `ADMIN_PASSWORD` in `PAGES_API_URL`, frontend configuration, or any Pages artifact.
 
 Without `PAGES_API_URL`, the public page displays the wheel and eligible names, with the live draw disconnected and its controls disabled. It cannot spin, check in viewers, or show shared live results until the backend is connected.

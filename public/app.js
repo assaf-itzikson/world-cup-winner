@@ -2,6 +2,8 @@ import { apiBaseUrl, staticSite } from './config.js';
 
 const element = id => document.getElementById(id);
 const crossOrigin = Boolean(apiBaseUrl) && new URL(apiBaseUrl).origin !== window.location.origin;
+const githubPagesBackend = Boolean(apiBaseUrl) && (new URL(apiBaseUrl).hostname === 'github.io' || new URL(apiBaseUrl).hostname.endsWith('.github.io'));
+const usableBackend = !staticSite || (Boolean(apiBaseUrl) && !githubPagesBackend);
 const apiPath = pathname => `${apiBaseUrl}${pathname}`;
 let adminToken = sessionStorage.getItem('drawAdminToken') || '';
 const authHeaders = () => adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
@@ -12,7 +14,7 @@ let state = { participants: [], draw: null };
 let admin = false;
 let connected = false;
 let stream;
-let transport = 'sse';
+let transport = staticSite ? 'poll' : 'sse';
 let pollTimer;
 let pollController;
 let connectionGeneration = 0;
@@ -294,7 +296,7 @@ async function start() {
       state.participants = [...new Set(await response.json())];
       render();
     } catch (error) { toast(error.message); }
-    if (!apiBaseUrl) {
+    if (!usableBackend) {
       element('connection-label').textContent = 'Draw not connected';
       element('draw-badge').textContent = 'AWAITING HOST';
       element('spin-label').textContent = 'Waiting for live connection';
@@ -312,7 +314,7 @@ async function start() {
     if (!response.ok) throw new Error('Unable to connect to the room.');
     const session = await response.json();
     admin = session.admin;
-    transport = crossOrigin ? 'poll' : session.transport;
+    transport = staticSite || crossOrigin ? 'poll' : session.transport;
   } catch (error) { toast(error.message); }
   connect();
   animate();
@@ -322,13 +324,13 @@ window.addEventListener('pagehide', () => {
   clearTimeout(pollTimer);
   pollController?.abort();
   stream?.close();
-  if (staticSite && !apiBaseUrl) return;
+  if (!usableBackend) return;
   const departure = JSON.stringify({ id: viewerId, pageId });
   if (crossOrigin) {
     fetch(apiPath('/api/leave'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: departure, keepalive: true, credentials: 'omit' }).catch(() => {});
   } else navigator.sendBeacon(apiPath('/api/leave'), new Blob([departure], { type: 'application/json' }));
 });
 window.addEventListener('pageshow', event => {
-  if (event.persisted) connect();
+  if (event.persisted && usableBackend) connect();
 });
 start();
