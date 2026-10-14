@@ -1,0 +1,71 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      DATA_DIR: /app/data
+      PORT: "3000"
+      LIVE_TRANSPORT: poll
+      COOKIE_SECURE: "true"
+    volumes:
+      - draw-data:/app/data
+    expose:
+      - "3000"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  tunnel:
+    build:
+      context: .
+      dockerfile: Dockerfile.tunnel
+    restart: unless-stopped
+    command:
+      - -F
+      - /dev/null
+      - -T
+      - -o
+      - BatchMode=yes
+      - -o
+      - IdentityFile=none
+      - -o
+      - IdentityAgent=none
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -o
+      - ConnectTimeout=15
+      - -R
+      - 80:app:3000
+      - nokey@localhost.run
+    volumes:
+      - tunnel-known-hosts:/home/tunnel/.ssh
+    depends_on:
+      app:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  draw-data:
+  tunnel-known-hosts:

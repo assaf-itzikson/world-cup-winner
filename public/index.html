@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102c26">
+  <title>The Final Whistle · Live draw</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="The Final Whistle home"><span class="brand-icon">✳</span> THE FINAL WHISTLE<span class="brand-sub">THE WORLD CUP DRAW</span></a>
+    <div class="header-right"><span class="connection"><i id="connection-dot"></i><span id="connection-label">Connecting</span></span><button class="text-button" id="admin-open">Admin access ↗</button></div>
+  </header>
+  <main>
+    <section class="intro"><div class="eyebrow"><span></span> ONE DRAW. THREE WINNERS.</div><h1>A little luck.<br>A big <em>moment.</em></h1><p>The names are in. The stage is set.<br>Join the room and watch your luck unfold.</p></section>
+    <div class="draw-layout">
+      <section class="wheel-panel" aria-label="Live prize wheel">
+        <div class="panel-top"><span class="eyebrow">THE LIVE DRAW</span><span id="draw-badge" class="badge">READY WHEN YOU ARE</span></div>
+        <div class="wheel-wrap"><div class="wheel-pointer" aria-hidden="true"></div><canvas id="wheel" width="1000" height="1000" aria-label="Wheel showing all eligible participants"></canvas><div class="wheel-hub"><span>THE FINAL</span><strong>✳</strong><span>WHISTLE</span></div></div>
+        <div class="wheel-caption"><span class="spark">✦</span><span id="wheel-status">Equal chances. Let fate decide.</span></div>
+        <button id="spin" class="primary-button" disabled><span id="spin-label">Waiting for the admin</span><span aria-hidden="true">↗</span></button>
+        <p class="wheel-note" id="wheel-note">The admin starts the draw. Everyone shares the moment.</p>
+        <button id="reset" class="text-button" hidden>Start a fresh draw</button>
+      </section>
+      <aside class="side-panel">
+        <section class="winners-panel"><div class="section-title"><h2>The lucky three</h2><span>01 — 03</span></div><p class="section-description">Three different people. One unforgettable spin.</p><div id="winner-list" aria-live="polite"></div><div class="fairness"><span>✧</span><p><strong>Everyone gets a fair shot.</strong><br>Duplicate names removed. Three unique winners, chosen securely at random.</p></div></section>
+        <section class="watch-panel"><div class="section-title"><h2>Got a front-row seat?</h2><span class="watch-count"><i></i><span id="viewer-count">0</span> online</span></div><p class="section-description">Let the admin know you’re here for the draw.</p><form id="watch-form"><label for="viewer-name">Your name</label><div class="input-row"><input id="viewer-name" name="name" placeholder="e.g. Andy Stubbs" minlength="2" maxlength="80" required autocomplete="name"><button type="submit" aria-label="Tell the admin you are watching">↗</button></div></form><p id="watch-message" class="small-note" role="status">Your check-in is visible only to the admin.</p><div id="admin-viewers" hidden><h3>Watching the draw</h3><ul id="viewer-list"></ul></div></section>
+      </aside>
+    </div>
+    <section class="participants-panel"><div class="section-title"><h2>Everyone in the running <span id="participant-count" class="count-pill">—</span></h2><span class="roster-note">ONE ENTRY PER PERSON</span></div><div id="participants" class="participants"></div></section>
+    <footer><span>MADE FOR THE MOMENT.</span><span><span id="footer-count">—</span> names <span class="footer-dot">·</span> 3 winners <span class="footer-dot">·</span> A fair draw</span></footer>
+  </main>
+  <dialog id="admin-dialog"><form id="login-form"><button class="dialog-close" type="button" id="admin-close" aria-label="Close">×</button><div class="eyebrow">BEHIND THE SCENES</div><h2>Admin access</h2><p>Sign in to start the live draw and see who’s watching.</p><label for="admin-password">Admin password</label><input id="admin-password" type="password" required autocomplete="current-password"><p id="login-error" role="alert"></p><button class="primary-button" type="submit">Enter the control room ↗</button></form></dialog>
+  <div id="toast" role="alert" hidden></div>
+</body>
+</html>

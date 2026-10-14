@@ -1,0 +1,12 @@
+.env
+.env.*
+.git
+.codex
+.agents
+node_modules
+data
+README.md
+Dockerfile*
+compose*.yaml
+render.yaml
+.DS_Store

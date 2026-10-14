@@ -1,0 +1,19 @@
+{
+  "name": "world-cup-winner",
+  "version": "1.0.0",
+  "description": "A public live prize draw with secure admin controls",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "packageManager": "yarn@1.22.11",
+  "engines": {
+    "node": ">=18.0.0",
+    "yarn": ">=1.22.0 <2"
+  }
+}
