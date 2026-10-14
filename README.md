@@ -55,22 +55,22 @@ The server normalizes names and removes duplicates, then uses Node's cryptograph
 
 Results are saved before the animation starts and survive restarts when `DATA_DIR` is persistent. Winners are withheld from public responses until the draw ends. A second spin is rejected until an admin explicitly resets the completed draw. This is a fair random selection, but not an independently verifiable public lottery protocol.
 
-Admin authorization is checked on the server, with expiring sessions, allowed-origin checks and login attempt limits. Pages keeps an admin session token in tab session storage and sends it in the Authorization header, so cross-origin authentication does not depend on third-party cookies. Same-origin hosting also supports an HttpOnly cookie. HTTPS is required for public deployment. Login attempts are limited per connection IP; a hosting proxy can cause this limit to be shared by viewers. Admin sessions and check-ins are held in memory and expire on restart. Run a single server instance with a persistent disk.
+Admin authorization is checked on the server, with expiring sessions, allowed-origin checks and login attempt limits. Pages keeps an admin session token in tab session storage and sends it in the Authorization header, so cross-origin authentication does not depend on third-party cookies. Same-origin hosting also supports an HttpOnly cookie. HTTPS is required for public deployment. Login attempts are limited per connection IP; a hosting proxy can cause this limit to be shared by viewers. Admin sessions and check-ins are held in memory and expire on restart. Run a single server instance. The free Render configuration does not preserve saved results across restarts; Docker retains results in its volume.
 
 ## Deploy publicly on Render
 
 Use a **Node web service**, so viewers receive shared live updates and the server can enforce admin access.
 
 1. Push this folder to a GitHub repository. Keep `.env` out of Git.
-2. In Render, create a **Blueprint** from the repository. `render.yaml` configures a paid Starter service and a 1 GB persistent disk.
+2. In Render, create a **Blueprint** from the repository. `render.yaml` configures a free web service with no paid disk.
 3. Set `ADMIN_PASSWORD` when prompted. Use a long, unique password and share it only with the admin.
 4. Deploy and use the supplied `https://…onrender.com` URL as the GitHub `PAGES_API_URL` variable. The same backend URL also serves the complete app directly.
 
-Alternatively create a Node web service manually: build command `yarn install --frozen-lockfile --production`, start command `yarn start`, health check `/health`; set `ADMIN_PASSWORD` and `ALLOWED_ORIGINS=https://assaf-itzikson.github.io`, mount a persistent disk at `/var/data`, and set `DATA_DIR=/var/data`.
+Alternatively create a Node web service manually: choose the **Free** compute plan, build command `yarn install --frozen-lockfile --production`, start command `yarn start`, health check `/health`; set `ADMIN_PASSWORD`, `ALLOWED_ORIGINS=https://assaf-itzikson.github.io`, `LIVE_TRANSPORT=poll`, and `DATA_DIR=./data`. Do not add a disk.
 
-The paid service and disk incur hosting charges; review Render's current pricing before deploying. A free service can demonstrate the page, but free services sleep and do not offer persistent disks, so results will not reliably survive restarts or deploys. Static-only hosting cannot enforce these admin controls or synchronize the room.
+Free services sleep after 15 minutes without traffic and can take about a minute to wake up. Saved draw results are lost when the service sleeps, restarts, or redeploys; record the winners before closing the draw. Free services do not support persistent disks. A paid service and disk are optional if durable results are required later. Static-only hosting cannot enforce these admin controls or synchronize the room.
 
-Render documentation: https://render.com/docs/web-services and https://render.com/docs/disks
+Render documentation: https://render.com/docs/web-services and https://render.com/docs/free
 
 ## Validation
 

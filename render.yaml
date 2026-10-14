@@ -2,7 +2,7 @@ services:
   - type: web
     name: world-cup-winner
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: yarn install --frozen-lockfile --production
     startCommand: yarn start
     healthCheckPath: /health
@@ -12,12 +12,8 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: DATA_DIR
-        value: /var/data
+        value: ./data
       - key: ALLOWED_ORIGINS
         value: https://assaf-itzikson.github.io
       - key: LIVE_TRANSPORT
         value: poll
-    disk:
-      name: draw-results
-      mountPath: /var/data
-      sizeGB: 1
